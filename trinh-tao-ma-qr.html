@@ -1,0 +1,4166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaQR — Trình tạo mã QR tone xanh</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#040d1c;
+  --card:rgba(9,24,47,.72);
+  --card-solid:#0a1a33;
+  --border:rgba(56,189,248,.16);
+  --border-strong:rgba(56,189,248,.38);
+  --cyan:#22d3ee;
+  --blue:#3b82f6;
+  --teal:#2dd4bf;
+  --text:#e8f4ff;
+  --muted:#8fb3d9;
+  --muted-2:#5f83ab;
+  --grad:linear-gradient(120deg,#22d3ee,#3b82f6 55%,#2dd4bf);
+  --grad-btn:linear-gradient(120deg,#06b6d4,#2563eb);
+  --radius:20px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:rgba(34,211,238,.35)}
+
+/* ======== Nền hiệu ứng ======== */
+.bg-fx{position:fixed;inset:0;z-index:-1;overflow:hidden;
+  background:
+    radial-gradient(1200px 700px at 82% -10%, rgba(37,99,235,.28), transparent 60%),
+    radial-gradient(900px 620px at -12% 28%, rgba(34,211,238,.16), transparent 55%),
+    radial-gradient(820px 600px at 52% 112%, rgba(45,212,191,.14), transparent 60%),
+    var(--bg);
+}
+.blob{position:absolute;border-radius:50%;filter:blur(95px);opacity:.42;animation:drift 20s ease-in-out infinite alternate}
+.b1{width:480px;height:480px;background:#0ea5e9;top:-170px;left:-130px}
+.b2{width:430px;height:430px;background:#2563eb;top:18%;right:-150px;animation-delay:-7s}
+.b3{width:390px;height:390px;background:#14b8a6;bottom:-150px;left:28%;animation-delay:-13s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(70px,46px) scale(1.18)}}
+.grid-overlay{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(148,199,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,199,255,.05) 1px,transparent 1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 72%);
+  mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 72%);
+}
+
+/* ======== Thanh đầu trang ======== */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px clamp(16px,4vw,40px);
+  background:rgba(4,13,28,.68);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(56,189,248,.12);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-icon{
+  width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#04121f;
+  background:var(--grad);box-shadow:0 6px 20px rgba(34,211,238,.45), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.brand-name{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.brand-name span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand-sub{font-size:.6rem;font-weight:600;letter-spacing:.18em;color:var(--muted-2)}
+.top-badge{
+  font-size:.72rem;font-weight:600;color:var(--cyan);
+  border:1px solid rgba(34,211,238,.3);border-radius:999px;padding:7px 14px;
+  background:rgba(34,211,238,.08);white-space:nowrap;
+}
+@media(max-width:640px){.top-badge{display:none}}
+
+/* ======== Hero ======== */
+main{max-width:1180px;margin:0 auto;padding:0 clamp(14px,3.5vw,32px) 60px}
+.hero{text-align:center;padding:clamp(28px,5vw,52px) 8px clamp(22px,4vw,40px)}
+.hero h1{font-size:clamp(1.85rem,4.4vw,3rem);font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.grad-text{
+  background:linear-gradient(120deg,#67e8f9,#3b82f6 45%,#2dd4bf 80%,#67e8f9);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shimmer 6s ease-in-out infinite;
+}
+@keyframes shimmer{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+.hero p{color:var(--muted);max-width:560px;margin:12px auto 0;font-size:.95rem}
+
+/* ======== Bố cục ======== */
+.workspace{display:grid;grid-template-columns:1.62fr 1fr;gap:22px;align-items:start}
+@media(max-width:980px){
+  .workspace{grid-template-columns:1fr}
+  .preview-col{order:-1}
+  .preview-col .glow-frame{position:static}
+}
+.controls{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+/* ======== Thẻ (card) ======== */
+.card{
+  background:var(--card);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:clamp(18px,3vw,26px);
+  transition:border-color .3s, box-shadow .3s, transform .3s;
+}
+.card:hover{border-color:var(--border-strong);box-shadow:0 10px 44px rgba(14,116,233,.14)}
+.card-head{display:flex;gap:14px;align-items:center;margin-bottom:18px}
+.step{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;flex-shrink:0;
+  font-weight:800;font-size:.95rem;color:#04121f;
+  background:var(--grad);box-shadow:0 4px 16px rgba(34,211,238,.4);
+}
+.card-head h2{font-size:1.05rem;font-weight:700;letter-spacing:-.01em}
+.card-head p{font-size:.78rem;color:var(--muted)}
+
+/* ======== Tab loại nội dung ======== */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.tabs button{
+  display:inline-flex;align-items:center;gap:7px;
+  font:inherit;font-size:.8rem;font-weight:600;color:var(--muted);
+  background:rgba(6,26,50,.55);border:1px solid var(--border);border-radius:999px;
+  padding:8px 14px;cursor:pointer;transition:all .22s;
+}
+.tabs button svg{width:14px;height:14px}
+.tabs button:hover{color:var(--text);border-color:var(--border-strong);transform:translateY(-1px)}
+.tabs button.active{
+  color:#04121f;background:var(--grad-btn);border-color:transparent;
+  background:linear-gradient(120deg,#22d3ee,#3b82f6);
+  box-shadow:0 5px 18px rgba(34,211,238,.38);color:#fff;font-weight:700;
+}
+
+/* ======== Trường nhập ======== */
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>span{font-size:.76rem;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.field>span b{color:var(--cyan);font-weight:700}
+input[type=text],input[type=password],textarea,select{
+  font:inherit;font-size:.88rem;color:var(--text);width:100%;
+  background:rgba(3,17,36,.62);border:1px solid var(--border);border-radius:12px;
+  padding:11px 14px;transition:border-color .2s, box-shadow .2s;
+}
+textarea{resize:vertical;min-height:70px}
+input:focus,textarea:focus,select:focus{
+  outline:none;border-color:rgba(34,211,238,.65);
+  box-shadow:0 0 0 3px rgba(34,211,238,.16);
+}
+input::placeholder,textarea::placeholder{color:var(--muted-2)}
+select{cursor:pointer}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.grid-2:first-child{margin-top:0}
+@media(max-width:560px){.grid-2{grid-template-columns:1fr}}
+.panel{display:flex;flex-direction:column;gap:14px}
+.panel .grid-2{margin-top:0}
+.check-row{display:flex;align-items:center;gap:9px;font-size:.83rem;color:var(--muted);cursor:pointer;user-select:none}
+.check-row input{width:16px;height:16px;accent-color:var(--cyan);cursor:pointer}
+
+/* ======== Nhãn phụ, seg, switch ======== */
+.sub-label{font-size:.76rem;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:18px 0 9px}
+.sub-label:first-of-type{margin-top:0}
+.seg{display:flex;gap:4px;background:rgba(3,17,36,.6);border:1px solid var(--border);border-radius:13px;padding:4px}
+.seg button{
+  flex:1;font:inherit;font-size:.79rem;font-weight:600;color:var(--muted);
+  background:transparent;border:none;border-radius:9px;padding:8px 6px;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--grad-btn);color:#fff;font-weight:700;box-shadow:0 3px 12px rgba(37,99,235,.4)}
+.row-toggle{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+.row-toggle .sub-label{margin:0}
+.switch{
+  width:46px;height:26px;border-radius:999px;position:relative;flex-shrink:0;
+  background:rgba(6,26,50,.8);border:1px solid var(--border);cursor:pointer;transition:background .25s;
+}
+.switch::after{
+  content:'';position:absolute;width:19px;height:19px;border-radius:50%;
+  background:#5f83ab;top:50%;left:3px;transform:translateY(-50%);transition:all .25s;
+}
+.switch.on{background:var(--grad-btn);border-color:transparent;box-shadow:0 3px 12px rgba(34,211,238,.4)}
+.switch.on::after{left:23px;background:#fff}
+
+/* ======== Màu ======== */
+.color-wrap{display:flex;align-items:center;gap:10px}
+input[type=color]{
+  -webkit-appearance:none;appearance:none;width:46px;height:40px;border-radius:12px;
+  border:2px solid var(--border);background:none;padding:0;cursor:pointer;transition:border-color .2s, transform .2s;
+}
+input[type=color]:hover{border-color:var(--border-strong);transform:scale(1.06)}
+input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:8px}
+.color-wrap code{font-size:.78rem;color:var(--muted);font-family:Consolas,monospace;text-transform:uppercase}
+
+/* ======== Range ======== */
+input[type=range]{width:100%;accent-color:var(--cyan);cursor:pointer;height:26px}
+
+/* ======== Bảng màu nhanh ======== */
+.palettes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.pal-chip{
+  display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:.78rem;font-weight:600;
+  color:var(--muted);background:rgba(6,26,50,.55);border:1px solid var(--border);
+  border-radius:999px;padding:6px 13px 6px 7px;cursor:pointer;transition:all .22s;
+}
+.pal-chip:hover{color:var(--text);border-color:var(--border-strong);transform:translateY(-1px);box-shadow:0 4px 14px rgba(14,116,233,.25)}
+.pal-dot{width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+
+/* ======== Logo ======== */
+.logo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:9px}
+.logo-preset{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  font:inherit;background:transparent;border:none;cursor:pointer;padding:0;
+}
+.logo-preset .chip{
+  width:52px;height:52px;border-radius:14px;background:#fff;display:grid;place-items:center;
+  border:2px solid transparent;transition:all .22s;box-shadow:0 2px 8px rgba(2,12,27,.5);
+}
+.logo-preset:hover .chip{transform:translateY(-2px) scale(1.05);box-shadow:0 6px 18px rgba(34,211,238,.3)}
+.logo-preset.active .chip{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.25),0 6px 18px rgba(34,211,238,.35)}
+.logo-preset i{font-style:normal;font-size:.66rem;font-weight:600;color:var(--muted)}
+.logo-preset.active i{color:var(--cyan)}
+.logo-preset .no-logo{font-size:1.3rem;color:#94a3b8;font-weight:300}
+.logo-preset canvas{width:30px;height:30px}
+.upload-zone{
+  margin-top:14px;border:1.5px dashed rgba(56,189,248,.35);border-radius:14px;
+  padding:18px;display:flex;align-items:center;gap:13px;cursor:pointer;
+  transition:all .22s;background:rgba(34,211,238,.03);
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--cyan);background:rgba(34,211,238,.09)}
+.upload-zone svg{width:26px;height:26px;color:var(--cyan);flex-shrink:0}
+.upload-zone b{font-size:.85rem;display:block}
+.upload-zone span{font-size:.73rem;color:var(--muted)}
+.upload-info{
+  margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);border-radius:11px;padding:9px 13px;
+}
+.upload-info span{font-size:.8rem;color:var(--cyan);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upload-info button{
+  font:inherit;font-size:.74rem;font-weight:600;color:#fca5a5;background:rgba(239,68,68,.12);
+  border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:4px 10px;cursor:pointer;transition:all .2s;
+}
+.upload-info button:hover{background:rgba(239,68,68,.25)}
+.hint-note{margin-top:12px;font-size:.74rem;color:var(--muted-2);display:flex;gap:7px;align-items:flex-start}
+.hint-note svg{width:14px;height:14px;flex-shrink:0;margin-top:2px;color:var(--cyan)}
+
+/* ======== Khung xem trước ======== */
+@property --spin{syntax:'<angle>';initial-value:0deg;inherits:false}
+.preview-col{min-width:0}
+.glow-frame{
+  position:sticky;top:80px;border-radius:calc(var(--radius) + 2px);padding:1.6px;
+  background:conic-gradient(from var(--spin),#22d3ee,#3b82f6 25%,#0e7490 50%,#2dd4bf 75%,#22d3ee);
+  animation:spin 7s linear infinite;
+  box-shadow:0 0 44px rgba(34,211,238,.2),0 20px 60px rgba(2,12,27,.65);
+}
+@keyframes spin{to{--spin:360deg}}
+.preview-card{
+  background:linear-gradient(180deg,#0b1d3a,#081426);border-radius:var(--radius);
+  padding:clamp(16px,2.5vw,22px);display:flex;flex-direction:column;gap:14px;
+}
+.preview-head{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 0 rgba(34,211,238,.6);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,211,238,.55)}70%{box-shadow:0 0 0 9px rgba(34,211,238,0)}100%{box-shadow:0 0 0 0 rgba(34,211,238,0)}}
+.qr-stage{
+  background:#fff;border-radius:16px;padding:12px;display:grid;place-items:center;
+  position:relative;overflow:hidden;transition:background .3s;
+  box-shadow:inset 0 0 0 1px rgba(2,12,27,.06);
+}
+#qrCanvas{width:100%;height:auto;max-width:300px;border-radius:6px;display:block;transition:filter .3s}
+#qrCanvas.dim{filter:blur(5px) opacity(.35)}
+#qrCanvas.pop{animation:qrPop .38s cubic-bezier(.34,1.56,.64,1)}
+@keyframes qrPop{0%{transform:scale(.965)}100%{transform:scale(1)}}
+.qr-overlay{
+  position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;
+  background:rgba(255,255,255,.55);backdrop-filter:blur(2px);
+}
+.qr-overlay p{font-size:.9rem;font-weight:700;color:#0f2f52}
+.content-preview{background:rgba(3,17,36,.6);border:1px solid var(--border);border-radius:12px;padding:10px 13px}
+.cp-head{display:flex;justify-content:space-between;font-size:.68rem;font-weight:700;color:var(--muted-2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px}
+.content-preview code{
+  font-family:Consolas,monospace;font-size:.75rem;color:#a5e6fb;word-break:break-all;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.dl-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:end}
+.size-field select{padding:11px 12px}
+.btn-primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  font:inherit;font-size:.92rem;font-weight:700;color:#fff;
+  background:var(--grad-btn);border:none;border-radius:13px;padding:12px 18px;cursor:pointer;
+  box-shadow:0 8px 26px rgba(14,116,233,.4);transition:all .22s;
+}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.12);box-shadow:0 12px 34px rgba(34,211,238,.45)}
+.btn-primary:active:not(:disabled){transform:translateY(0)}
+.btn-primary svg{width:17px;height:17px}
+.btn-ghost{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font:inherit;font-size:.82rem;font-weight:600;color:var(--cyan);
+  background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.3);border-radius:13px;
+  padding:10px 16px;cursor:pointer;transition:all .22s;
+}
+.btn-ghost:hover:not(:disabled){background:rgba(34,211,238,.16);transform:translateY(-1px)}
+.btn-ghost svg{width:15px;height:15px}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+/* ======== Chân trang, toast ======== */
+footer{
+  text-align:center;font-size:.76rem;color:var(--muted-2);
+  padding:26px 16px 34px;border-top:1px solid rgba(56,189,248,.08);margin-top:52px;
+}
+footer b{color:var(--muted)}
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);z-index:100;
+  background:linear-gradient(120deg,#0e7490,#1d4ed8);color:#fff;font-size:.85rem;font-weight:600;
+  border-radius:999px;padding:11px 22px;box-shadow:0 10px 34px rgba(2,12,27,.6),0 0 22px rgba(34,211,238,.35);
+  opacity:0;transition:all .35s cubic-bezier(.34,1.3,.64,1);pointer-events:none;
+}
+.toast.show{transform:translate(-50%,0);opacity:1}
+
+/* ======== Chi tiết nâng cao (details) ======== */
+details.adv{border:1px solid var(--border);border-radius:12px;padding:11px 15px;background:rgba(3,17,36,.4)}
+details.adv summary{cursor:pointer;font-size:.78rem;font-weight:600;color:var(--muted);user-select:none;transition:color .2s}
+details.adv summary:hover{color:var(--text)}
+
+/* ======== Trang landing QR đôi (Ứng dụng) ======== */
+body.landing-open{overflow:hidden}
+#landingRoot{
+  position:fixed;inset:0;z-index:80;overflow:auto;
+  background:
+    radial-gradient(1100px 650px at 80% -8%, rgba(37,99,235,.3), transparent 60%),
+    radial-gradient(850px 580px at -10% 30%, rgba(34,211,238,.18), transparent 55%),
+    radial-gradient(780px 560px at 50% 110%, rgba(45,212,191,.16), transparent 60%),
+    var(--bg);
+}
+.landing-center{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:36px 20px;text-align:center}
+.ld-devbox{position:relative;width:86px;height:86px;border-radius:24px;background:rgba(255,255,255,.07);border:1px solid var(--border-strong);display:grid;place-items:center;font-size:2.3rem}
+.ld-ping{position:absolute;inset:-2px;border-radius:24px;border:2px solid var(--cyan);animation:ldPing 1.5s ease-out infinite;pointer-events:none}
+@keyframes ldPing{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.38);opacity:0}}
+#landingRedirect h2{font-size:1.25rem;font-weight:800;letter-spacing:-.01em}
+#landingRedirect .ld-desc{font-size:.82rem;color:var(--muted);max-width:350px;line-height:1.6}
+#landingRedirect .ld-desc b{color:var(--cyan)}
+.ld-tip{font-size:.71rem;color:var(--muted-2);background:rgba(255,255,255,.05);border:1px solid var(--border);padding:9px 13px;border-radius:11px;max-width:330px;line-height:1.55}
+.ld-spinner{width:27px;height:27px;border-radius:50%;border:3px solid rgba(34,211,238,.22);border-top-color:var(--cyan);animation:ldRot .9s linear infinite;margin:4px 0}
+@keyframes ldRot{to{transform:rotate(360deg)}}
+.ld-cancel{background:none;border:none;color:var(--muted-2);text-decoration:underline;font-size:.76rem;cursor:pointer;font-family:inherit;transition:color .2s}
+.ld-cancel:hover{color:var(--text)}
+.ld-card{
+  max-width:410px;width:100%;
+  background:rgba(10,25,47,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--border-strong);border-radius:26px;padding:32px 26px;
+  display:flex;flex-direction:column;align-items:center;gap:13px;
+  box-shadow:0 0 50px rgba(34,211,238,.16),0 24px 70px rgba(2,12,27,.7);
+}
+.ld-appicon{width:80px;height:80px;border-radius:23px;background:var(--grad);display:grid;place-items:center;font-size:2.1rem;box-shadow:0 10px 30px rgba(34,211,238,.45)}
+#ldAppName{font-size:1.55rem;font-weight:800;letter-spacing:-.02em}
+#ldAppDesc{font-size:.85rem;color:var(--muted);line-height:1.6}
+.ld-badge{font-size:.6rem;font-weight:800;letter-spacing:.16em;color:var(--cyan);border:1px solid rgba(34,211,238,.3);background:rgba(34,211,238,.08);border-radius:999px;padding:5px 13px}
+.ld-btns{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.ld-store-btn{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:#fff;color:#04121f;border-radius:16px;padding:12px 17px;
+  text-decoration:none;transition:all .22s;
+}
+.ld-store-btn:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,211,238,.4)}
+.ld-store-btn .ld-ic{font-size:1.4rem}
+.ld-store-btn .ld-lines{flex:1;text-align:left}
+.ld-store-btn .ld-small{display:block;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.55;line-height:1.2}
+.ld-store-btn .ld-big{display:block;font-size:.95rem;font-weight:800;line-height:1.25}
+.ld-store-btn .ld-arrow{opacity:.45;font-size:.9rem}
+.ld-web-btn{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.3);color:var(--cyan);
+  border-radius:15px;padding:11px 16px;text-decoration:none;font-size:.82rem;font-weight:700;transition:all .22s;
+}
+.ld-web-btn:hover{background:rgba(34,211,238,.16);transform:translateY(-1px)}
+.ld-brand{font-size:.62rem;font-weight:800;letter-spacing:.22em;color:var(--muted-2);margin-top:9px}
+.ld-brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ld-preview-tag{font-size:.7rem;color:#fbbf24;background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:7px 12px;max-width:330px;line-height:1.5}
+.ld-back{
+  margin-top:16px;display:inline-flex;align-items:center;gap:8px;
+  font:inherit;font-size:.8rem;font-weight:600;color:var(--muted);
+  background:rgba(6,26,50,.55);border:1px solid var(--border);border-radius:999px;
+  padding:9px 18px;cursor:pointer;transition:all .22s;
+}
+.ld-back:hover{color:var(--text);border-color:var(--border-strong)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-fx" aria-hidden="true">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="grid-overlay"></div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3z M21 14v.01 M14 21v.01 M21 21v.01 M17.5 17.5v.01"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">Aqua<span>QR</span></div>
+      <div class="brand-sub">TRÌNH TẠO MÃ QR · TONE XANH</div>
+    </div>
+  </div>
+  <div class="top-badge">✦ Miễn phí · Không giới hạn · Chạy offline 100%</div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Tạo mã QR <span class="grad-text">đẹp như đại dương</span></h1>
+    <p>Gradient xanh mượt mà, pixel bo tròn, mắt QR tùy biến và logo thương hiệu ngay chính giữa — tất cả trong một trang, không cần cài đặt.</p>
+  </section>
+
+  <div class="workspace">
+    <!-- ============ CỘT ĐIỀU KHIỂN ============ -->
+    <div class="controls">
+
+      <!-- BƯỚC 1: NỘI DUNG -->
+      <section class="card">
+        <div class="card-head">
+          <div class="step">1</div>
+          <div><h2>Nội dung mã QR</h2><p>Chọn loại nội dung và điền thông tin</p></div>
+        </div>
+        <div class="tabs" id="typeTabs">
+          <button data-type="url" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>Liên kết</button>
+          <button data-type="text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>Văn bản</button>
+          <button data-type="phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Gọi điện</button>
+          <button data-type="email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Email</button>
+          <button data-type="sms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>SMS</button>
+          <button data-type="wifi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>Wi-Fi</button>
+          <button data-type="vcard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 17c.6-1.8 1.6-2.5 3-2.5s2.4.7 3 2.5"/><path d="M15 9h4"/><path d="M15 13h4"/></svg>Danh thiếp</button>
+          <button data-type="app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v6"/><path d="m9.5 10.5 2.5 2.5 2.5-2.5"/><path d="M10.5 18h3"/></svg>Ứng dụng</button>
+        </div>
+        <div class="panels">
+          <div class="panel" data-panel="url">
+            <label class="field"><span>Đường dẫn (URL)</span><input id="inUrl" type="text" value="https://google.com" placeholder="https://trang-web-cua-ban.vn" spellcheck="false"></label>
+          </div>
+          <div class="panel" data-panel="text" hidden>
+            <label class="field"><span>Nội dung văn bản</span><textarea id="inText" rows="3" placeholder="Nhập văn bản bất kỳ, tiếng Việt có dấu thoải mái..."></textarea></label>
+          </div>
+          <div class="panel" data-panel="phone" hidden>
+            <label class="field"><span>Số điện thoại</span><input id="inPhone" type="text" placeholder="0901 234 567" spellcheck="false"></label>
+          </div>
+          <div class="panel" data-panel="email" hidden>
+            <div class="grid-2">
+              <label class="field"><span>Địa chỉ email</span><input id="inEmailAddr" type="text" placeholder="ten@email.com" spellcheck="false"></label>
+              <label class="field"><span>Tiêu đề (tùy chọn)</span><input id="inEmailSubject" type="text" placeholder="Chủ đề thư"></label>
+            </div>
+            <label class="field"><span>Nội dung thư (tùy chọn)</span><textarea id="inEmailBody" rows="2" placeholder="Nội dung soạn sẵn..."></textarea></label>
+          </div>
+          <div class="panel" data-panel="sms" hidden>
+            <label class="field"><span>Số điện thoại nhận</span><input id="inSmsPhone" type="text" placeholder="0901 234 567" spellcheck="false"></label>
+            <label class="field"><span>Tin nhắn (tùy chọn)</span><textarea id="inSmsMsg" rows="2" placeholder="Nội dung tin nhắn soạn sẵn..."></textarea></label>
+          </div>
+          <div class="panel" data-panel="wifi" hidden>
+            <div class="grid-2">
+              <label class="field"><span>Tên mạng (SSID)</span><input id="inWifiSsid" type="text" placeholder="Ten_WiFi_Nha_Ban" spellcheck="false"></label>
+              <label class="field"><span>Mật khẩu</span><input id="inWifiPass" type="text" placeholder="Mật khẩu Wi-Fi" spellcheck="false"></label>
+            </div>
+            <div class="grid-2">
+              <label class="field"><span>Bảo mật</span>
+                <select id="inWifiEnc">
+                  <option value="WPA" selected>WPA / WPA2 / WPA3</option>
+                  <option value="WEP">WEP</option>
+                  <option value="nopass">Mạng mở (không mật khẩu)</option>
+                </select>
+              </label>
+              <label class="check-row" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="inWifiHidden"> Mạng ẩn (hidden)</label>
+            </div>
+          </div>
+          <div class="panel" data-panel="vcard" hidden>
+            <div class="grid-2">
+              <label class="field"><span>Tên</span><input id="inVcFirst" type="text" placeholder="Minh Anh"></label>
+              <label class="field"><span>Họ và tên đệm</span><input id="inVcLast" type="text" placeholder="Nguyễn"></label>
+            </div>
+            <div class="grid-2">
+              <label class="field"><span>Công ty / Tổ chức</span><input id="inVcOrg" type="text" placeholder="Công ty ABC"></label>
+              <label class="field"><span>Email</span><input id="inVcEmail" type="text" placeholder="ten@email.com" spellcheck="false"></label>
+            </div>
+            <div class="grid-2">
+              <label class="field"><span>Di động</span><input id="inVcMobile" type="text" placeholder="0901 234 567" spellcheck="false"></label>
+              <label class="field"><span>Điện thoại cơ quan</span><input id="inVcWork" type="text" placeholder="028 1234 567" spellcheck="false"></label>
+            </div>
+            <div class="grid-2">
+              <label class="field"><span>Website</span><input id="inVcUrl" type="text" placeholder="https://..." spellcheck="false"></label>
+              <label class="field"><span>Địa chỉ</span><input id="inVcAddr" type="text" placeholder="Số nhà, đường, quận, thành phố"></label>
+            </div>
+          </div>
+          <div class="panel" data-panel="app" hidden>
+            <div class="grid-2">
+              <label class="field"><span>Tên ứng dụng</span><input id="inAppName" type="text" placeholder="Ứng dụng của tôi"></label>
+              <label class="field"><span>Mô tả ngắn (tùy chọn)</span><input id="inAppDesc" type="text" placeholder="Ứng dụng đa nền tảng tuyệt vời nhất"></label>
+            </div>
+            <label class="field"><span>Liên kết App Store (iPhone / iPad)</span><input id="inAppIos" type="text" placeholder="https://apps.apple.com/vn/app/..." spellcheck="false"></label>
+            <label class="field"><span>Liên kết Google Play (Android)</span><input id="inAppAndroid" type="text" placeholder="https://play.google.com/store/apps/details?id=..." spellcheck="false"></label>
+            <label class="field"><span>Liên kết Huawei AppGallery (tùy chọn)</span><input id="inAppGallery" type="text" placeholder="https://appgallery.huawei.com/app/..." spellcheck="false"></label>
+            <label class="field"><span>Liên kết dự phòng — máy tính / thiết bị khác (tùy chọn)</span><input id="inAppFallback" type="text" placeholder="https://trang-chu-ung-dung.vn" spellcheck="false"></label>
+            <details class="adv">
+              <summary>Nâng cao — Deep link mở thẳng ứng dụng nếu đã cài</summary>
+              <div class="grid-2" style="margin-top:12px">
+                <label class="field"><span>Deep link iOS</span><input id="inAppDeepIos" type="text" placeholder="vd: youtube:// hoặc zalo://" spellcheck="false"></label>
+                <label class="field"><span>Deep link Android</span><input id="inAppDeepAndroid" type="text" placeholder="vd: myapp:// hoặc intent://..." spellcheck="false"></label>
+              </div>
+            </details>
+            <div class="row-toggle" style="margin-top:2px">
+              <span class="sub-label" style="margin:0">Tự động chuyển hướng khi quét</span>
+              <button type="button" class="switch on" id="swAppRedirect" role="switch" aria-label="Bật tắt tự động chuyển hướng"></button>
+            </div>
+            <label class="field"><span>Địa chỉ trang landing (nơi bạn đăng file này lên mạng)</span><input id="inAppBase" type="text" placeholder="https://ten-ban.github.io/aquaqr.html" spellcheck="false"></label>
+            <div class="hint-note">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+              <span id="appBaseNoteText">Mã QR đôi hoạt động bằng cách trỏ về chính file này kèm dữ liệu nén trong liên kết: người quét sẽ thấy trang landing tự nhận diện iPhone / Android / Huawei rồi chuyển đến đúng cửa hàng.</span>
+            </div>
+            <button type="button" class="btn-ghost" id="btnPreviewLanding">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              Xem thử trang landing
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- BƯỚC 2: KIỂU DÁNG -->
+      <section class="card">
+        <div class="card-head">
+          <div class="step">2</div>
+          <div><h2>Kiểu dáng &amp; màu sắc</h2><p>Gradient, kiểu pixel và mắt QR</p></div>
+        </div>
+
+        <div class="sub-label">Bảng màu nhanh</div>
+        <div class="palettes" id="palettes"></div>
+
+        <div class="grid-2">
+          <div class="field"><span>Màu chính</span>
+            <div class="color-wrap"><input type="color" id="cFg" value="#0c4a6e"><code id="cFgVal">#0c4a6e</code></div>
+          </div>
+          <div class="field"><span>Màu nền</span>
+            <div class="color-wrap"><input type="color" id="cBg" value="#ffffff"><code id="cBgVal">#ffffff</code></div>
+          </div>
+        </div>
+
+        <div class="row-toggle">
+          <span class="sub-label">Gradient (chuyển sắc)</span>
+          <button type="button" class="switch on" id="swGrad" role="switch" aria-label="Bật tắt gradient"></button>
+        </div>
+        <div id="gradBox">
+          <div class="seg" id="segGradType" style="margin-bottom:14px">
+            <button data-v="linear" class="active">Tuyến tính</button>
+            <button data-v="radial">Tỏa tròn</button>
+          </div>
+          <div class="grid-2" style="margin-top:0">
+            <div class="field"><span>Màu bắt đầu</span>
+              <div class="color-wrap"><input type="color" id="cG1" value="#06b6d4"><code id="cG1Val">#06b6d4</code></div>
+            </div>
+            <div class="field"><span>Màu kết thúc</span>
+              <div class="color-wrap"><input type="color" id="cG2" value="#1d4ed8"><code id="cG2Val">#1d4ed8</code></div>
+            </div>
+          </div>
+          <div class="field" id="angleRow" style="margin-top:14px">
+            <span>Góc xoay gradient <b id="rAngleVal">135°</b></span>
+            <input type="range" id="rAngle" min="0" max="360" value="135">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <div class="sub-label">Kiểu pixel</div>
+            <div class="seg" id="segPixel">
+              <button data-v="square">Vuông</button>
+              <button data-v="rounded" class="active">Bo tròn</button>
+              <button data-v="dot">Chấm</button>
+            </div>
+          </div>
+          <div>
+            <div class="sub-label">Kiểu mắt QR</div>
+            <div class="seg" id="segEye">
+              <button data-v="square">Vuông</button>
+              <button data-v="rounded" class="active">Bo tròn</button>
+              <button data-v="circle">Tròn</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-toggle">
+          <span class="sub-label">Màu mắt riêng</span>
+          <button type="button" class="switch on" id="swEye" role="switch" aria-label="Bật tắt màu mắt riêng"></button>
+        </div>
+        <div class="grid-2" id="eyeBox" style="margin-top:0">
+          <div class="field"><span>Viền mắt</span>
+            <div class="color-wrap"><input type="color" id="cEyeOuter" value="#0e7490"><code id="cEyeOuterVal">#0e7490</code></div>
+          </div>
+          <div class="field"><span>Tâm mắt</span>
+            <div class="color-wrap"><input type="color" id="cEyeInner" value="#1e40af"><code id="cEyeInnerVal">#1e40af</code></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <label class="field"><span>Mức sửa lỗi</span>
+            <select id="selEcl">
+              <option value="L">L — chịu lỗi 7%</option>
+              <option value="M" selected>M — chịu lỗi 15%</option>
+              <option value="Q">Q — chịu lỗi 25%</option>
+              <option value="H">H — chịu lỗi 30%</option>
+            </select>
+          </label>
+          <div class="field">
+            <span>Lề trắng xung quanh <b id="rMarginVal">36px</b></span>
+            <input type="range" id="rMargin" min="0" max="64" value="36">
+          </div>
+        </div>
+      </section>
+
+      <!-- BƯỚC 3: LOGO -->
+      <section class="card">
+        <div class="card-head">
+          <div class="step">3</div>
+          <div><h2>Logo trung tâm</h2><p>Chèn logo có sẵn hoặc tải ảnh của bạn</p></div>
+        </div>
+
+        <div class="logo-grid" id="logoGrid">
+          <button type="button" class="logo-preset active" data-logo="none"><span class="chip"><span class="no-logo">&empty;</span></span><i>Không</i></button>
+        </div>
+
+        <div class="upload-zone" id="upZone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+          <div><b>Tải logo của bạn lên</b><span>Nhấn để chọn hoặc kéo-thả ảnh vào đây (PNG / JPG / SVG)</span></div>
+          <input type="file" id="inLogoFile" accept="image/*" hidden>
+        </div>
+        <div class="upload-info" id="upInfo" hidden>
+          <span id="upName"></span>
+          <button type="button" id="btnRemoveLogo">Gỡ bỏ</button>
+        </div>
+
+        <div id="logoOpts" hidden>
+          <div class="grid-2">
+            <div class="field">
+              <span>Kích thước logo <b id="rLogoSizeVal">18%</b></span>
+              <input type="range" id="rLogoSize" min="10" max="28" value="18">
+            </div>
+            <div class="field">
+              <span>Đệm quanh logo <b id="rLogoPadVal">5px</b></span>
+              <input type="range" id="rLogoPad" min="0" max="14" value="5">
+            </div>
+          </div>
+          <div class="sub-label">Hình nền logo</div>
+          <div class="seg" id="segLogoShape">
+            <button data-v="circle" class="active">Tròn</button>
+            <button data-v="square">Vuông</button>
+            <button data-v="none">Không nền</button>
+          </div>
+        </div>
+
+        <div class="hint-note" id="eclNote" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          Đang chèn logo — mức sửa lỗi tự động nâng lên <b>&nbsp;H (30%)&nbsp;</b> để mã luôn quét được.
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ CỘT XEM TRƯỚC ============ -->
+    <aside class="preview-col">
+      <div class="glow-frame">
+        <div class="preview-card">
+          <div class="preview-head"><span class="live-dot"></span> XEM TRƯỚC TRỰC TIẾP</div>
+          <div class="qr-stage" id="qrStage">
+            <canvas id="qrCanvas" width="512" height="512"></canvas>
+            <div class="qr-overlay" id="qrOverlay" hidden><p></p></div>
+          </div>
+          <div class="content-preview">
+            <div class="cp-head"><span>Nội dung mã hóa</span><span id="charCount">0 ký tự</span></div>
+            <code id="contentPreview">—</code>
+          </div>
+          <div class="dl-row">
+            <label class="field size-field"><span>Độ phân giải</span>
+              <select id="selSize">
+                <option value="512">512 px</option>
+                <option value="1024" selected>1024 px</option>
+                <option value="2048">2048 px</option>
+              </select>
+            </label>
+            <button type="button" class="btn-primary" id="btnDownload">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 3v12"/></svg>
+              Tải PNG
+            </button>
+          </div>
+          <button type="button" class="btn-ghost" id="btnCopy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Sao chép ảnh vào bộ nhớ tạm
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <b>AquaQR</b> — Tạo mã QR đẹp chuẩn tone xanh đại dương · Hoạt động 100% ngoại tuyến · Không thu thập dữ liệu của bạn 🌊
+</footer>
+
+<!-- ============ TRANG LANDING QR ĐÔI (ỨNG DỤNG) ============ -->
+<div id="landingRoot" hidden>
+  <!-- Chế độ đang tự chuyển hướng -->
+  <div class="landing-center" id="landingRedirect" hidden>
+    <div class="ld-devbox"><span id="ldDevIcon">📱</span><span class="ld-ping"></span></div>
+    <h2 id="ldRedirectTitle">Đang chuyển hướng...</h2>
+    <p class="ld-desc" id="ldRedirectDesc"></p>
+    <p class="ld-tip" id="ldDeepTip" hidden>Nếu ứng dụng chưa được cài, bạn sẽ tự động được đưa đến cửa hàng tải về sau 2 giây.</p>
+    <div class="ld-spinner"></div>
+    <button type="button" class="btn-primary" id="ldManualBtn">Mở thủ công (nếu không tự chuyển)</button>
+    <button type="button" class="ld-cancel" id="ldCancelBtn">Hủy chuyển tự động — xem trang tải</button>
+  </div>
+  <!-- Chế độ thẻ tải ứng dụng -->
+  <div class="landing-center" id="landingCard" hidden>
+    <div class="ld-card">
+      <div class="ld-appicon">📱</div>
+      <h1 id="ldAppName"></h1>
+      <p id="ldAppDesc"></p>
+      <span class="ld-badge">HỖ TRỢ ĐA NỀN TẢNG</span>
+      <div class="ld-btns" id="ldButtons"></div>
+      <p class="ld-brand">CUNG CẤP BỞI <b>AQUAQR</b> 🌊</p>
+    </div>
+    <p class="ld-preview-tag" id="ldPreviewTag" hidden>👁 Chế độ xem thử — khi quét thật, người dùng được chuyển THẲNG đến đúng cửa hàng ngay lập tức, không thấy trang này.</p>
+    <button type="button" class="ld-back" id="ldBackBtn">← Về trình thiết kế mã QR</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+
+</script>
+<script>
+/* =====================================================================
+   AquaQR — logic ứng dụng (chuyển thể từ QR Studio: qrFormatter + qrRenderer)
+   ===================================================================== */
+
+/* ---------- Trạng thái ---------- */
+const state = {
+  type: 'url',
+  url: 'https://google.com',
+  text: '',
+  phone: '',
+  email: { address: '', subject: '', body: '' },
+  sms: { phone: '', message: '' },
+  wifi: { ssid: '', password: '', encryption: 'WPA', hidden: false },
+  vcard: { firstName: '', lastName: '', organization: '', phoneMobile: '', phoneWork: '', email: '', url: '', address: '' },
+  app: {
+    appName: '', appDescription: '',
+    appStoreUrl: '', playStoreUrl: '', galleryUrl: '', fallbackUrl: '',
+    iosDeepLinkUrl: '', androidDeepLinkUrl: '',
+    autoRedirect: true, landingBase: ''
+  },
+  style: {
+    foreground: '#0c4a6e',
+    background: '#ffffff',
+    gradientEnabled: true,
+    gradientType: 'linear',
+    gradientColor1: '#06b6d4',
+    gradientColor2: '#1d4ed8',
+    gradientAngle: 135,
+    pixelStyle: 'rounded',
+    eyeStyle: 'rounded',
+    customEyeColorEnabled: true,
+    eyeColorOuter: '#0e7490',
+    eyeColorInner: '#1e40af'
+  },
+  logo: { size: 18, backgroundShape: 'circle', backgroundPadding: 5 },
+  ecl: 'M',
+  margin: 36
+};
+let presetLogoId = 'none';
+let logoImage = null;
+let currentContent = '';
+let lastRenderOk = false;
+
+/* Mã hóa tiếng Việt / Unicode chuẩn UTF-8 */
+if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) {
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+}
+
+/* ---------- Bảng màu nhanh (tone xanh) ---------- */
+const PALETTES = [
+  { name: 'Đại dương', fg: '#0c4a6e', bg: '#ffffff', grad: true,  type: 'linear', c1: '#06b6d4', c2: '#1d4ed8', angle: 135, eo: '#0e7490', ei: '#1e40af' },
+  { name: 'Biển sâu',  fg: '#082f49', bg: '#f0f9ff', grad: true,  type: 'linear', c1: '#0ea5e9', c2: '#1e3a8a', angle: 160, eo: '#075985', ei: '#1e3a8a' },
+  { name: 'Bạc hà',    fg: '#134e4a', bg: '#ffffff', grad: true,  type: 'linear', c1: '#0d9488', c2: '#0e7490', angle: 120, eo: '#0f766e', ei: '#155e75' },
+  { name: 'Tỏa sáng',  fg: '#1e3a8a', bg: '#eff6ff', grad: true,  type: 'radial', c1: '#0284c7', c2: '#1e3a8a', angle: 0,   eo: '#0369a1', ei: '#1e3a8a' },
+  { name: 'Cổ điển',   fg: '#0f172a', bg: '#ffffff', grad: false, type: 'linear', c1: '#06b6d4', c2: '#1d4ed8', angle: 135, eo: '#0f172a', ei: '#0f172a' }
+];
+
+/* ---------- Logo có sẵn (chuyển thể từ presetLogos.ts) ---------- */
+const PRESET_LOGOS = [
+  {
+    id: 'facebook', name: 'Facebook', color: '#1877F2',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = 'bold ' + (size * 1.1) + 'px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('f', x + size * 0.1, y + size * 0.05);
+      ctx.restore();
+    }
+  },
+  {
+    id: 'instagram', name: 'Instagram', color: '#E1306C',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size * 0.1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const r = size * 0.25, hs = size / 2;
+      ctx.beginPath(); ctx.roundRect(x - hs, y - hs, size, size, r); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, size * 0.22, 0, 2 * Math.PI); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x + size * 0.25, y - size * 0.25, size * 0.07, 0, 2 * Math.PI); ctx.fill();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'youtube', name: 'YouTube', color: '#FF0000',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.fillStyle = color;
+      const w = size * 1.2, h = size * 0.8;
+      ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h * 0.25); ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      const tw = size * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(x - tw / 2, y - tw / 2);
+      ctx.lineTo(x + tw * 0.6, y);
+      ctx.lineTo(x - tw / 2, y + tw / 2);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'twitter', name: 'X (Twitter)', color: '#0F1419',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineCap = 'round';
+      const hs = size / 2;
+      ctx.lineWidth = size * 0.12;
+      ctx.beginPath(); ctx.moveTo(x - hs, y - hs); ctx.lineTo(x + hs, y + hs); ctx.stroke();
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath(); ctx.moveTo(x + hs, y - hs); ctx.lineTo(x - hs, y + hs); ctx.stroke();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'tiktok', name: 'TikTok', color: '#000000',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size * 0.12;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const hs = size / 2;
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.2, y - hs); ctx.lineTo(x + size * 0.2, y - hs);
+      ctx.moveTo(x, y - hs); ctx.lineTo(x, y + size * 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x - size * 0.15, y + size * 0.15, size * 0.15, 0, Math.PI, false);
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'wifi', name: 'Wi-Fi', color: '#0EA5E9',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = size * 0.08;
+      ctx.lineCap = 'round';
+      const cy = y + size * 0.35;
+      ctx.beginPath(); ctx.arc(x, cy, size * 0.08, 0, 2 * Math.PI); ctx.fill();
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.arc(x, cy, size * 0.28 * i, -Math.PI * 0.75, -Math.PI * 0.25);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  },
+  {
+    id: 'phone', name: 'Điện thoại', color: '#10B981',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.fillStyle = color;
+      const r = size / 2;
+      ctx.translate(x, y);
+      ctx.rotate(-Math.PI / 4);
+      ctx.beginPath();
+      ctx.roundRect(-r * 0.3, -r * 0.8, r * 0.6, r * 1.6, r * 0.3);
+      ctx.fill();
+      ctx.fillStyle = state.style.background;
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.5, r * 0.08, 0, 2 * Math.PI);
+      ctx.arc(0, r * 0.5, r * 0.08, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'email', name: 'Email', color: '#EF4444',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size * 0.08;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const w = size * 1.1, h = size * 0.75;
+      ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, size * 0.1); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - w / 2 + size * 0.05, y - h / 2 + size * 0.05);
+      ctx.lineTo(x, y + size * 0.08);
+      ctx.lineTo(x + w / 2 - size * 0.05, y - h / 2 + size * 0.05);
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+  {
+    id: 'globe', name: 'Website', color: '#6366F1',
+    draw: (ctx, x, y, size, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size * 0.07;
+      const r = size / 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - r, y); ctx.lineTo(x + r, y);
+      ctx.moveTo(x - r * 0.86, y - r * 0.5); ctx.lineTo(x + r * 0.86, y - r * 0.5);
+      ctx.moveTo(x - r * 0.86, y + r * 0.5); ctx.lineTo(x + r * 0.86, y + r * 0.5);
+      ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x, y, r * 0.5, r, 0, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.stroke();
+      ctx.restore();
+    }
+  }
+];
+
+/* ---------- QR đôi cho Ứng dụng: mã hóa / giải mã / nhận diện thiết bị ---------- */
+try { state.app.landingBase = localStorage.getItem('aquaqr_landing_base') || ''; } catch (e) { /* file:// có thể chặn */ }
+
+/* Mã hóa RÚT GỌN: chỉ lưu ID ứng dụng thay vì cả URL, bỏ trường trống —
+   nội dung ngắn hơn → mã QR ít ô, thưa và dễ quét hơn hẳn. */
+function encodeAppData(a) {
+  try {
+    const m = {};
+    const put = (k, v) => { v = (v || '').trim(); if (v) m[k] = v; };
+    put('n', a.appName);
+    put('d', a.appDescription);
+    const ios = (a.appStoreUrl || '').trim();
+    if (ios) {
+      const mm = ios.match(/apps\.apple\.com\/.*id(\d+)/i);
+      m.a = mm ? mm[1] : ios;
+    }
+    const play = (a.playStoreUrl || '').trim();
+    if (play) {
+      const mm = play.match(/play\.google\.com\/store\/apps\/details\?id=([A-Za-z0-9._]+)/i);
+      m.p = mm ? mm[1] : play;
+    }
+    const gal = (a.galleryUrl || '').trim();
+    if (gal) {
+      const mm = gal.match(/appgallery\.huawei\.com\/(?:#\/)?app\/(C\d+)/i);
+      m.h = mm ? mm[1] : gal;
+    }
+    const fb = (a.fallbackUrl || '').trim();
+    if (fb) m.f = fb.replace(/^https:\/\//i, '');
+    put('i', a.iosDeepLinkUrl);
+    put('g', a.androidDeepLinkUrl);
+    if (a.autoRedirect) m.r = 1;
+    const bytes = new TextEncoder().encode(JSON.stringify(m));
+    let bin = '';
+    bytes.forEach((b) => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } catch (e) { return ''; }
+}
+
+function decodeAppData(encoded) {
+  try {
+    let b64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const p = JSON.parse(new TextDecoder().decode(bytes));
+    // Khôi phục URL đầy đủ từ dạng rút gọn (vẫn đọc được định dạng cũ chứa URL nguyên vẹn)
+    const expIos = (v) => !v ? '' : (/^\d+$/.test(v) ? 'https://apps.apple.com/app/id' + v : v);
+    const expPlay = (v) => !v ? '' : (/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/.test(v) ? 'https://play.google.com/store/apps/details?id=' + v : v);
+    const expGal = (v) => !v ? '' : (/^C\d+$/i.test(v) ? 'https://appgallery.huawei.com/app/' + v : v);
+    const expUrl = (v) => !v ? '' : (/^https?:\/\//i.test(v) ? v : 'https://' + v);
+    return {
+      appName: p.n || 'Ứng dụng di động', appDescription: p.d || '',
+      appStoreUrl: expIos(p.a || ''), playStoreUrl: expPlay(p.p || ''), galleryUrl: expGal(p.h || ''),
+      fallbackUrl: expUrl(p.f || ''), iosDeepLinkUrl: p.i || '', androidDeepLinkUrl: p.g || '',
+      autoRedirect: p.r === 1
+    };
+  } catch (e) { return null; }
+}
+
+function detectOS(uaOverride) {
+  const ua = uaOverride || navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/i.test(ua)) return 'ios';
+  if (/huawei|honor|harmonyos/i.test(ua)) return 'huawei';
+  if (/android/i.test(ua)) return 'android';
+  return 'other';
+}
+
+function hasAnyAppLink() {
+  const a = state.app;
+  return [a.appStoreUrl, a.playStoreUrl, a.galleryUrl, a.fallbackUrl].some((u) => u.trim() !== '');
+}
+
+/* Chỉ có đúng 1 liên kết và không dùng deep link → QR trỏ THẲNG đến đó,
+   không cần trang landing (mã ngắn nhất, không cần đăng file lên mạng). */
+function appDirectLink() {
+  const a = state.app;
+  if (a.iosDeepLinkUrl.trim() || a.androidDeepLinkUrl.trim()) return '';
+  const links = [a.appStoreUrl, a.playStoreUrl, a.galleryUrl, a.fallbackUrl].map((u) => u.trim()).filter(Boolean);
+  return links.length === 1 ? links[0] : '';
+}
+
+function effectiveLandingBase() {
+  let b = state.app.landingBase.trim();
+  if (!b) {
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      b = location.origin + location.pathname;
+    } else {
+      return '';
+    }
+  }
+  if (!/^https?:\/\//i.test(b)) b = 'https://' + b;
+  return b;
+}
+
+/* ---------- Định dạng nội dung QR ---------- */
+function formatQRContent() {
+  switch (state.type) {
+    case 'url': {
+      let url = state.url.trim();
+      if (!url) return '';
+      if (!/^https?:\/\//i.test(url)) {
+        if (/^[a-zA-Z0-9-.]+\.[a-zA-Z]{2,}/.test(url)) url = 'https://' + url;
+      }
+      return url;
+    }
+    case 'text':
+      return state.text;
+    case 'phone': {
+      const phone = state.phone.replace(/\s+/g, '');
+      return phone ? 'tel:' + phone : '';
+    }
+    case 'email': {
+      const { address, subject, body } = state.email;
+      if (!address.trim()) return '';
+      const params = [];
+      if (subject) params.push('subject=' + encodeURIComponent(subject));
+      if (body) params.push('body=' + encodeURIComponent(body));
+      return 'mailto:' + address.trim() + (params.length ? '?' + params.join('&') : '');
+    }
+    case 'sms': {
+      const cleanPhone = state.sms.phone.replace(/\s+/g, '');
+      if (!cleanPhone) return '';
+      return 'SMSTO:' + cleanPhone + ':' + (state.sms.message || '');
+    }
+    case 'wifi': {
+      const { ssid, password, encryption, hidden } = state.wifi;
+      if (!ssid.trim()) return '';
+      const esc = (s) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/:/g, '\\:').replace(/,/g, '\\,');
+      let str = 'WIFI:S:' + esc(ssid) + ';';
+      if (encryption !== 'nopass') {
+        str += 'T:' + encryption + ';';
+        if (password) str += 'P:' + esc(password) + ';';
+      } else {
+        str += 'T:nopass;';
+      }
+      if (hidden) str += 'H:true;';
+      return str + ';';
+    }
+    case 'vcard': {
+      const v = state.vcard;
+      if (!v.firstName.trim() && !v.lastName.trim()) return '';
+      const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+      const last = v.lastName.trim(), first = v.firstName.trim();
+      lines.push('N:' + last + ';' + first + ';;;');
+      lines.push(('FN:' + first + ' ' + last).trim());
+      if (v.organization) lines.push('ORG:' + v.organization.trim());
+      if (v.phoneMobile) lines.push('TEL;TYPE=CELL:' + v.phoneMobile.replace(/\s+/g, ''));
+      if (v.phoneWork) lines.push('TEL;TYPE=WORK:' + v.phoneWork.replace(/\s+/g, ''));
+      if (v.email) lines.push('EMAIL;TYPE=PREF,INTERNET:' + v.email.trim());
+      if (v.url) lines.push('URL:' + v.url.trim());
+      if (v.address) {
+        const escAddr = v.address.trim().replace(/\\/g, '\\\\').replace(/;/g, '\\;');
+        lines.push('ADR;TYPE=WORK:;;' + escAddr + ';;;;');
+      }
+      lines.push('END:VCARD');
+      return lines.join('\n');
+    }
+    case 'app': {
+      if (!hasAnyAppLink()) return '';
+      const direct = appDirectLink();
+      if (direct) return fmtLandingUrl(direct);
+      const base = effectiveLandingBase();
+      if (!base) return '';
+      const encoded = encodeAppData(state.app);
+      if (!encoded) return '';
+      return base + '#/app/' + encoded;
+    }
+    default:
+      return '';
+  }
+}
+
+/* ---------- Vẽ mã QR lên canvas ---------- */
+/* Bảng vị trí alignment pattern theo phiên bản QR (chuẩn ISO/IEC 18004) */
+const PATTERN_POSITIONS = [
+  [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
+  [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54],
+  [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74],
+  [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90],
+  [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102], [6, 28, 54, 80, 106],
+  [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122],
+  [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134],
+  [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146],
+  [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154], [6, 28, 54, 80, 106, 132, 158],
+  [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]
+];
+
+function getAlignmentCenters(size) {
+  const version = (size - 17) / 4;
+  const pos = PATTERN_POSITIONS[version - 1] || [];
+  const last = size - 7;
+  const centers = [];
+  for (const r of pos) {
+    for (const c of pos) {
+      if ((r === 6 && c === 6) || (r === 6 && c === last) || (r === last && c === 6)) continue;
+      centers.push([r, c]);
+    }
+  }
+  return centers;
+}
+
+function isEyeZone(row, col, size) {
+  if (row < 7 && col < 7) return true;
+  if (row < 7 && col >= size - 7) return true;
+  if (row >= size - 7 && col < 7) return true;
+  return false;
+}
+
+function drawRoundedRect(ctx, x, y, w, h, r) {
+  if (r < 0) r = 0;
+  if (r > w / 2) r = w / 2;
+  if (r > h / 2) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function hasLogo() {
+  return presetLogoId !== 'none' || !!logoImage;
+}
+
+function renderQR(canvas, px, content) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !content) return { ok: false };
+
+  const st = state.style;
+  const withLogo = hasLogo();
+  const finalEcl = withLogo ? 'H' : state.ecl;
+
+  let qr;
+  try {
+    qr = qrcode(0, finalEcl);
+    qr.addData(content, 'Byte');
+    qr.make();
+  } catch (e) {
+    return { ok: false, err: e };
+  }
+
+  canvas.width = px;
+  canvas.height = px;
+  const size = qr.getModuleCount();
+  const scale = px / 512;
+  const margin = Math.round(state.margin * scale);
+
+  ctx.clearRect(0, 0, px, px);
+
+  // 1. Nền
+  ctx.fillStyle = st.background;
+  ctx.fillRect(0, 0, px, px);
+
+  const qrAreaSize = px - 2 * margin;
+  const moduleSize = qrAreaSize / size;
+  const offsetX = margin, offsetY = margin;
+
+  // 2. Màu pixel (đặc hoặc gradient)
+  let pixelFillStyle = st.foreground;
+  if (st.gradientEnabled) {
+    if (st.gradientType === 'linear') {
+      const angleRad = (st.gradientAngle * Math.PI) / 180;
+      const r = px / 2, cx = px / 2, cy = px / 2;
+      const grad = ctx.createLinearGradient(
+        cx - r * Math.cos(angleRad), cy - r * Math.sin(angleRad),
+        cx + r * Math.cos(angleRad), cy + r * Math.sin(angleRad)
+      );
+      grad.addColorStop(0, st.gradientColor1);
+      grad.addColorStop(1, st.gradientColor2);
+      pixelFillStyle = grad;
+    } else {
+      const grad = ctx.createRadialGradient(px / 2, px / 2, 10 * scale, px / 2, px / 2, px / 2);
+      grad.addColorStop(0, st.gradientColor1);
+      grad.addColorStop(1, st.gradientColor2);
+      pixelFillStyle = grad;
+    }
+  }
+
+  // 3. Vẽ từng module
+  // Mẫu chức năng (timing + alignment) luôn vẽ liền khối để mọi máy quét
+  // định vị được lưới, kể cả khi pixel dữ liệu là chấm/bo tròn.
+  const alignCenters = getAlignmentCenters(size);
+  const isFunctional = (row, col) => {
+    if (row === 6 || col === 6) return true;
+    for (const [cr, cc] of alignCenters) {
+      if (Math.abs(row - cr) <= 2 && Math.abs(col - cc) <= 2) return true;
+    }
+    return false;
+  };
+
+  ctx.fillStyle = pixelFillStyle;
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (!qr.isDark(row, col)) continue;
+      if (isEyeZone(row, col, size)) continue;
+
+      const x = offsetX + col * moduleSize;
+      const y = offsetY + row * moduleSize;
+
+      if (isFunctional(row, col)) {
+        ctx.fillRect(x - 0.2, y - 0.2, moduleSize + 0.4, moduleSize + 0.4);
+      } else if (st.pixelStyle === 'dot') {
+        ctx.beginPath();
+        ctx.arc(x + moduleSize / 2, y + moduleSize / 2, (moduleSize / 2) * 0.85, 0, 2 * Math.PI);
+        ctx.fill();
+      } else if (st.pixelStyle === 'rounded') {
+        drawRoundedRect(ctx, x + moduleSize * 0.05, y + moduleSize * 0.05, moduleSize * 0.9, moduleSize * 0.9, moduleSize * 0.35);
+        ctx.fill();
+      } else {
+        ctx.fillRect(x - 0.2, y - 0.2, moduleSize + 0.4, moduleSize + 0.4);
+      }
+    }
+  }
+
+  // 4. Vẽ mắt QR — luôn vẽ liền khối (dùng màu riêng hoặc màu pixel)
+  {
+    const eyeOuterFill = st.customEyeColorEnabled ? st.eyeColorOuter : pixelFillStyle;
+    const eyeInnerFill = st.customEyeColorEnabled ? st.eyeColorInner : pixelFillStyle;
+    const eyePositions = [
+      { r: 0, c: 0 },
+      { r: 0, c: size - 7 },
+      { r: size - 7, c: 0 }
+    ];
+    eyePositions.forEach(({ r, c }) => {
+      const x = offsetX + c * moduleSize;
+      const y = offsetY + r * moduleSize;
+      const eyeWidth = 7 * moduleSize;
+      ctx.save();
+
+      if (st.eyeStyle === 'circle') {
+        const cx = x + eyeWidth / 2, cy = y + eyeWidth / 2;
+        ctx.fillStyle = eyeOuterFill;
+        ctx.beginPath(); ctx.arc(cx, cy, eyeWidth / 2, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = st.background;
+        ctx.beginPath(); ctx.arc(cx, cy, (5 * moduleSize) / 2, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = eyeInnerFill;
+        ctx.beginPath(); ctx.arc(cx, cy, (3 * moduleSize) / 2, 0, 2 * Math.PI); ctx.fill();
+      } else if (st.eyeStyle === 'rounded') {
+        const radiusOuter = moduleSize * 1.8;
+        const radiusInner = moduleSize * 0.8;
+        ctx.fillStyle = eyeOuterFill;
+        drawRoundedRect(ctx, x, y, eyeWidth, eyeWidth, radiusOuter); ctx.fill();
+        ctx.fillStyle = st.background;
+        drawRoundedRect(ctx, x + moduleSize, y + moduleSize, 5 * moduleSize, 5 * moduleSize, radiusOuter - moduleSize); ctx.fill();
+        ctx.fillStyle = eyeInnerFill;
+        drawRoundedRect(ctx, x + 2 * moduleSize, y + 2 * moduleSize, 3 * moduleSize, 3 * moduleSize, radiusInner); ctx.fill();
+      } else {
+        ctx.fillStyle = eyeOuterFill;
+        ctx.fillRect(x, y, eyeWidth, eyeWidth);
+        ctx.fillStyle = st.background;
+        ctx.fillRect(x + moduleSize, y + moduleSize, 5 * moduleSize, 5 * moduleSize);
+        ctx.fillStyle = eyeInnerFill;
+        ctx.fillRect(x + 2 * moduleSize, y + 2 * moduleSize, 3 * moduleSize, 3 * moduleSize);
+      }
+      ctx.restore();
+    });
+  }
+
+  // 5. Logo trung tâm
+  if (withLogo) {
+    const cx = px / 2, cy = px / 2;
+    const logoSizePx = qrAreaSize * (state.logo.size / 100);
+    const halfSize = logoSizePx / 2;
+    const padding = state.logo.backgroundPadding * scale;
+    const maskSize = logoSizePx + padding * 2;
+    const halfMask = maskSize / 2;
+
+    ctx.save();
+    ctx.fillStyle = st.background;
+
+    if (state.logo.backgroundShape === 'circle') {
+      ctx.beginPath(); ctx.arc(cx, cy, halfMask, 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = st.foreground + '22';
+      ctx.lineWidth = 1.5 * scale;
+      ctx.stroke();
+    } else if (state.logo.backgroundShape === 'square') {
+      drawRoundedRect(ctx, cx - halfMask, cy - halfMask, maskSize, maskSize, maskSize * 0.2);
+      ctx.fill();
+      ctx.strokeStyle = st.foreground + '22';
+      ctx.lineWidth = 1.5 * scale;
+      ctx.stroke();
+    }
+
+    if (presetLogoId !== 'none') {
+      const presetLogo = PRESET_LOGOS.find((l) => l.id === presetLogoId);
+      if (presetLogo) presetLogo.draw(ctx, cx, cy, logoSizePx, presetLogo.color);
+    } else if (logoImage) {
+      try {
+        ctx.drawImage(logoImage, cx - halfSize, cy - halfSize, logoSizePx, logoSizePx);
+      } catch (err) { /* bỏ qua ảnh lỗi */ }
+    }
+    ctx.restore();
+  }
+
+  return { ok: true };
+}
+
+/* =====================================================================
+   Kết nối giao diện
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const syncFns = [];
+
+let renderTimer = null;
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(updateAll, 60);
+}
+
+function bindInput(id, setter) {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => { setter(el.value); scheduleRender(); });
+}
+
+function initSeg(id, get, set) {
+  const el = document.getElementById(id);
+  const btns = Array.from(el.querySelectorAll('button'));
+  const sync = () => btns.forEach((b) => b.classList.toggle('active', b.dataset.v === get()));
+  btns.forEach((b) => b.addEventListener('click', () => { set(b.dataset.v); sync(); refreshVisibility(); scheduleRender(); }));
+  sync();
+  syncFns.push(sync);
+}
+
+function initSwitch(id, get, set) {
+  const el = document.getElementById(id);
+  const sync = () => el.classList.toggle('on', get());
+  el.addEventListener('click', () => { set(!get()); sync(); refreshVisibility(); scheduleRender(); });
+  sync();
+  syncFns.push(sync);
+}
+
+function initColor(id, get, set) {
+  const el = document.getElementById(id);
+  const lab = document.getElementById(id + 'Val');
+  const sync = () => { el.value = get(); if (lab) lab.textContent = get(); };
+  el.addEventListener('input', () => { set(el.value); if (lab) lab.textContent = el.value; scheduleRender(); });
+  sync();
+  syncFns.push(sync);
+}
+
+function initRange(id, get, set, suffix) {
+  const el = document.getElementById(id);
+  const lab = document.getElementById(id + 'Val');
+  const sync = () => { el.value = get(); if (lab) lab.textContent = get() + suffix; };
+  el.addEventListener('input', () => { set(Number(el.value)); if (lab) lab.textContent = el.value + suffix; scheduleRender(); });
+  sync();
+  syncFns.push(sync);
+}
+
+function syncAllControls() {
+  syncFns.forEach((fn) => fn());
+  refreshVisibility();
+}
+
+function refreshVisibility() {
+  $('#gradBox').hidden = !state.style.gradientEnabled;
+  $('#angleRow').hidden = state.style.gradientType !== 'linear';
+  $('#eyeBox').hidden = !state.style.customEyeColorEnabled;
+  const logoOn = hasLogo();
+  $('#logoOpts').hidden = !logoOn;
+  $('#eclNote').hidden = !logoOn;
+  $('#upInfo').hidden = !logoImage;
+}
+
+/* --- Tab loại nội dung --- */
+$$('#typeTabs button').forEach((b) => {
+  b.addEventListener('click', () => {
+    $$('#typeTabs button').forEach((x) => x.classList.toggle('active', x === b));
+    state.type = b.dataset.type;
+    $$('.panel').forEach((p) => { p.hidden = p.dataset.panel !== state.type; });
+    scheduleRender();
+  });
+});
+
+/* --- Trường nhập nội dung --- */
+bindInput('inUrl', (v) => { state.url = v; });
+bindInput('inText', (v) => { state.text = v; });
+bindInput('inPhone', (v) => { state.phone = v; });
+bindInput('inEmailAddr', (v) => { state.email.address = v; });
+bindInput('inEmailSubject', (v) => { state.email.subject = v; });
+bindInput('inEmailBody', (v) => { state.email.body = v; });
+bindInput('inSmsPhone', (v) => { state.sms.phone = v; });
+bindInput('inSmsMsg', (v) => { state.sms.message = v; });
+bindInput('inWifiSsid', (v) => { state.wifi.ssid = v; });
+bindInput('inWifiPass', (v) => { state.wifi.password = v; });
+document.getElementById('inWifiEnc').addEventListener('change', (e) => { state.wifi.encryption = e.target.value; scheduleRender(); });
+document.getElementById('inWifiHidden').addEventListener('change', (e) => { state.wifi.hidden = e.target.checked; scheduleRender(); });
+bindInput('inVcFirst', (v) => { state.vcard.firstName = v; });
+bindInput('inVcLast', (v) => { state.vcard.lastName = v; });
+bindInput('inVcOrg', (v) => { state.vcard.organization = v; });
+bindInput('inVcEmail', (v) => { state.vcard.email = v; });
+bindInput('inVcMobile', (v) => { state.vcard.phoneMobile = v; });
+bindInput('inVcWork', (v) => { state.vcard.phoneWork = v; });
+bindInput('inVcUrl', (v) => { state.vcard.url = v; });
+bindInput('inVcAddr', (v) => { state.vcard.address = v; });
+bindInput('inAppName', (v) => { state.app.appName = v; });
+bindInput('inAppDesc', (v) => { state.app.appDescription = v; });
+bindInput('inAppIos', (v) => { state.app.appStoreUrl = v; });
+bindInput('inAppAndroid', (v) => { state.app.playStoreUrl = v; });
+bindInput('inAppGallery', (v) => { state.app.galleryUrl = v; });
+bindInput('inAppFallback', (v) => { state.app.fallbackUrl = v; });
+bindInput('inAppDeepIos', (v) => { state.app.iosDeepLinkUrl = v; });
+bindInput('inAppDeepAndroid', (v) => { state.app.androidDeepLinkUrl = v; });
+bindInput('inAppBase', (v) => {
+  state.app.landingBase = v;
+  try { localStorage.setItem('aquaqr_landing_base', v); } catch (e) { /* bỏ qua */ }
+});
+initSwitch('swAppRedirect', () => state.app.autoRedirect, (v) => { state.app.autoRedirect = v; });
+
+/* --- Kiểu dáng --- */
+initColor('cFg', () => state.style.foreground, (v) => { state.style.foreground = v; });
+initColor('cBg', () => state.style.background, (v) => { state.style.background = v; });
+initSwitch('swGrad', () => state.style.gradientEnabled, (v) => { state.style.gradientEnabled = v; });
+initSeg('segGradType', () => state.style.gradientType, (v) => { state.style.gradientType = v; });
+initColor('cG1', () => state.style.gradientColor1, (v) => { state.style.gradientColor1 = v; });
+initColor('cG2', () => state.style.gradientColor2, (v) => { state.style.gradientColor2 = v; });
+initRange('rAngle', () => state.style.gradientAngle, (v) => { state.style.gradientAngle = v; }, '°');
+initSeg('segPixel', () => state.style.pixelStyle, (v) => { state.style.pixelStyle = v; });
+initSeg('segEye', () => state.style.eyeStyle, (v) => { state.style.eyeStyle = v; });
+initSwitch('swEye', () => state.style.customEyeColorEnabled, (v) => { state.style.customEyeColorEnabled = v; });
+initColor('cEyeOuter', () => state.style.eyeColorOuter, (v) => { state.style.eyeColorOuter = v; });
+initColor('cEyeInner', () => state.style.eyeColorInner, (v) => { state.style.eyeColorInner = v; });
+document.getElementById('selEcl').addEventListener('change', (e) => { state.ecl = e.target.value; scheduleRender(); });
+initRange('rMargin', () => state.margin, (v) => { state.margin = v; }, 'px');
+
+/* --- Bảng màu nhanh --- */
+const palBox = $('#palettes');
+PALETTES.forEach((p) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pal-chip';
+  const dotBg = p.grad ? 'linear-gradient(135deg,' + p.c1 + ',' + p.c2 + ')' : p.fg;
+  b.innerHTML = '<span class="pal-dot" style="background:' + dotBg + '"></span>' + p.name;
+  b.addEventListener('click', () => {
+    const s = state.style;
+    s.foreground = p.fg; s.background = p.bg;
+    s.gradientEnabled = p.grad; s.gradientType = p.type;
+    s.gradientColor1 = p.c1; s.gradientColor2 = p.c2; s.gradientAngle = p.angle;
+    s.customEyeColorEnabled = true; s.eyeColorOuter = p.eo; s.eyeColorInner = p.ei;
+    syncAllControls();
+    scheduleRender();
+  });
+  palBox.appendChild(b);
+});
+
+/* --- Logo có sẵn --- */
+const logoGrid = $('#logoGrid');
+PRESET_LOGOS.forEach((l) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'logo-preset';
+  b.dataset.logo = l.id;
+  b.innerHTML = '<span class="chip"><canvas width="60" height="60"></canvas></span><i>' + l.name + '</i>';
+  logoGrid.appendChild(b);
+  const c = b.querySelector('canvas');
+  const cctx = c.getContext('2d');
+  l.draw(cctx, 30, 30, 30, l.color);
+});
+
+function markActiveLogo() {
+  $$('.logo-preset').forEach((b) => b.classList.toggle('active', b.dataset.logo === presetLogoId && !logoImage));
+}
+
+$$('.logo-preset').forEach((b) => {
+  b.addEventListener('click', () => {
+    presetLogoId = b.dataset.logo;
+    if (presetLogoId !== 'none' || true) {
+      logoImage = null;
+      document.getElementById('inLogoFile').value = '';
+    }
+    markActiveLogo();
+    refreshVisibility();
+    scheduleRender();
+  });
+});
+
+/* --- Tải logo lên --- */
+const upZone = $('#upZone');
+const fileInput = document.getElementById('inLogoFile');
+upZone.addEventListener('click', () => fileInput.click());
+upZone.addEventListener('dragover', (e) => { e.preventDefault(); upZone.classList.add('drag'); });
+upZone.addEventListener('dragleave', () => upZone.classList.remove('drag'));
+upZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  upZone.classList.remove('drag');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleLogoFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files && fileInput.files[0]) handleLogoFile(fileInput.files[0]);
+});
+
+function handleLogoFile(file) {
+  if (!file.type.startsWith('image/')) { showToast('Vui lòng chọn một tệp hình ảnh'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      logoImage = img;
+      presetLogoId = 'none';
+      $('#upName').textContent = file.name;
+      markActiveLogo();
+      refreshVisibility();
+      scheduleRender();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('btnRemoveLogo').addEventListener('click', () => {
+  logoImage = null;
+  fileInput.value = '';
+  markActiveLogo();
+  refreshVisibility();
+  scheduleRender();
+});
+
+/* --- Tùy chọn logo --- */
+initRange('rLogoSize', () => state.logo.size, (v) => { state.logo.size = v; }, '%');
+initRange('rLogoPad', () => state.logo.backgroundPadding, (v) => { state.logo.backgroundPadding = v; }, 'px');
+initSeg('segLogoShape', () => state.logo.backgroundShape, (v) => { state.logo.backgroundShape = v; });
+
+/* --- Cập nhật xem trước --- */
+function updateAll() {
+  currentContent = formatQRContent();
+  $('#charCount').textContent = currentContent.length + ' ký tự';
+  $('#contentPreview').textContent = currentContent || '—';
+  $('#qrStage').style.background = state.style.background;
+
+  const canvas = $('#qrCanvas');
+  const overlay = $('#qrOverlay');
+
+  // Ghi chú địa chỉ landing cho loại "Ứng dụng"
+  if (state.type === 'app') {
+    const noteEl = $('#appBaseNoteText');
+    const base = effectiveLandingBase();
+    if (appDirectLink()) {
+      noteEl.textContent = '⚡ Chỉ có 1 liên kết → mã QR trỏ THẲNG đến đó, không qua trang trung gian, không cần đăng file lên mạng. Thêm liên kết cửa hàng thứ hai nếu muốn 1 mã tự nhận diện iPhone / Android.';
+    } else if (!base) {
+      noteEl.textContent = '⚠ Để mã QR đôi dùng được trên điện thoại, hãy đăng file này lên mạng (GitHub Pages, Netlify Drop... đều miễn phí) rồi điền địa chỉ đó vào ô trên.';
+    } else if (!state.app.landingBase.trim() && /^https?:\/\/(localhost|127\.|192\.168\.|10\.)/i.test(base)) {
+      noteEl.textContent = '⚠ Đang dùng địa chỉ nội bộ ' + base + ' — chỉ chạy trên máy này. Để quét bằng điện thoại, hãy đăng file lên mạng và điền địa chỉ thật vào ô trên.';
+    } else {
+      let tip = '';
+      if (currentContent) {
+        tip = ' Mã hiện dài ' + currentContent.length + ' ký tự — muốn mã thưa hơn nữa, hãy bỏ trống mô tả và chọn mức sửa lỗi L.';
+      }
+      noteEl.textContent = 'Mã QR sẽ trỏ về trang landing tại: ' + base + ' — người quét được tự nhận diện thiết bị và chuyển đến đúng cửa hàng.' + tip;
+    }
+  }
+
+  if (!currentContent) {
+    lastRenderOk = false;
+    overlay.hidden = false;
+    let emptyMsg = 'Nhập nội dung để tạo mã QR ✨';
+    if (state.type === 'app') {
+      emptyMsg = !hasAnyAppLink()
+        ? 'Điền ít nhất một liên kết cửa hàng (App Store / Google Play...) 📲'
+        : 'Điền địa chỉ trang landing ở cuối biểu mẫu để tạo mã 🌐';
+    }
+    overlay.querySelector('p').textContent = emptyMsg;
+    canvas.classList.add('dim');
+  } else {
+    const r = renderQR(canvas, 512, currentContent);
+    lastRenderOk = r.ok;
+    if (r.ok) {
+      overlay.hidden = true;
+      canvas.classList.remove('dim');
+      canvas.classList.remove('pop');
+      void canvas.offsetWidth;
+      canvas.classList.add('pop');
+    } else {
+      overlay.hidden = false;
+      overlay.querySelector('p').textContent = 'Nội dung quá dài, hãy rút gọn bớt nhé!';
+      canvas.classList.add('dim');
+    }
+  }
+  $('#btnDownload').disabled = !lastRenderOk;
+  $('#btnCopy').disabled = !lastRenderOk;
+}
+
+/* --- Tải xuống & sao chép --- */
+function renderToCanvas(px) {
+  if (!lastRenderOk || !currentContent) return null;
+  const c = document.createElement('canvas');
+  const r = renderQR(c, px, currentContent);
+  return r.ok ? c : null;
+}
+
+document.getElementById('btnDownload').addEventListener('click', () => {
+  const px = Number($('#selSize').value);
+  const c = renderToCanvas(px);
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = 'aquaqr-' + state.type + '-' + px + 'px.png';
+  a.click();
+  showToast('Đã tải mã QR ' + px + 'px ✓');
+});
+
+document.getElementById('btnCopy').addEventListener('click', () => {
+  const c = renderToCanvas(1024);
+  if (!c) return;
+  c.toBlob(async (blob) => {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      showToast('Đã sao chép ảnh QR vào bộ nhớ tạm ✓');
+    } catch (e) {
+      showToast('Trình duyệt chưa hỗ trợ sao chép ảnh');
+    }
+  });
+});
+
+/* --- Toast --- */
+let toastTimer = null;
+function showToast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2300);
+}
+
+/* =====================================================================
+   Trang landing QR đôi (chuyển thể từ AppStoreLanding.tsx)
+   ===================================================================== */
+let ldTimer = null;
+let ldVisHandler = null;
+let ldCurrentTarget = '';
+let ldPreviewMode = false;
+
+function fmtLandingUrl(u) {
+  u = u.trim();
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+function landingTarget(data, os) {
+  if (os === 'ios' && data.appStoreUrl) return fmtLandingUrl(data.appStoreUrl);
+  if (os === 'huawei' && data.galleryUrl) return fmtLandingUrl(data.galleryUrl);
+  if ((os === 'android' || os === 'huawei') && data.playStoreUrl) return fmtLandingUrl(data.playStoreUrl);
+  const f = data.fallbackUrl || data.playStoreUrl || data.appStoreUrl || data.galleryUrl;
+  return f ? fmtLandingUrl(f) : '';
+}
+
+function clearLandingTimers() {
+  if (ldTimer) { clearTimeout(ldTimer); ldTimer = null; }
+  if (ldVisHandler) { document.removeEventListener('visibilitychange', ldVisHandler); ldVisHandler = null; }
+}
+
+function showCardView(data, previewNote) {
+  clearLandingTimers();
+  $('#landingRedirect').hidden = true;
+  $('#landingCard').hidden = false;
+  $('#ldAppName').textContent = data.appName || 'Ứng dụng di động';
+  const descEl = $('#ldAppDesc');
+  descEl.textContent = data.appDescription || '';
+  descEl.hidden = !data.appDescription;
+  $('#ldPreviewTag').hidden = !(previewNote && data.autoRedirect);
+
+  const box = $('#ldButtons');
+  box.innerHTML = '';
+  const mkStore = (url, icon, small, big) => {
+    const a = document.createElement('a');
+    a.className = 'ld-store-btn';
+    a.href = fmtLandingUrl(url);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.innerHTML = '<span class="ld-ic">' + icon + '</span><span class="ld-lines"><span class="ld-small">' + small + '</span><span class="ld-big">' + big + '</span></span><span class="ld-arrow">⬇</span>';
+    box.appendChild(a);
+  };
+  if (data.appStoreUrl) mkStore(data.appStoreUrl, '🍎', 'Tải trên', 'App Store');
+  if (data.playStoreUrl) mkStore(data.playStoreUrl, '🤖', 'Tải trên', 'Google Play');
+  if (data.galleryUrl) mkStore(data.galleryUrl, '📲', 'Tải trên', 'Huawei AppGallery');
+  if (data.fallbackUrl) {
+    const a = document.createElement('a');
+    a.className = 'ld-web-btn';
+    a.href = fmtLandingUrl(data.fallbackUrl);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = '🌐 Xem trang chủ ứng dụng';
+    box.appendChild(a);
+  }
+}
+
+const LD_ICONS = { ios: '🍎', android: '🤖', huawei: '📲', other: '💻' };
+const LD_NAMES = { ios: 'iPhone / iPad', android: 'Android', huawei: 'Huawei', other: 'Máy tính / Khác' };
+function ldStoreName(data, os) {
+  if (os === 'ios') return 'App Store';
+  if (os === 'huawei') return data.galleryUrl ? 'AppGallery' : 'Google Play';
+  if (os === 'android') return 'Google Play';
+  return 'trang tải về';
+}
+
+function showRedirectView(data) {
+  $('#landingCard').hidden = true;
+  $('#landingRedirect').hidden = false;
+  $('#ldManualBtn').hidden = false;
+  $('#ldCancelBtn').hidden = false;
+
+  const os = detectOS();
+  const deep = ((os === 'ios' ? data.iosDeepLinkUrl : (os === 'android' || os === 'huawei') ? data.androidDeepLinkUrl : '') || '').trim();
+  const target = landingTarget(data, os);
+  ldCurrentTarget = target;
+
+  $('#ldDevIcon').textContent = LD_ICONS[os];
+  $('#ldDeepTip').hidden = !deep;
+
+  if (deep) {
+    $('#ldRedirectTitle').textContent = '🚀 Đang khởi chạy ứng dụng...';
+    $('#ldRedirectDesc').innerHTML = 'Đang mở thẳng ứng dụng <b></b> trên thiết bị ' + LD_NAMES[os] + ' của bạn.';
+    $('#ldRedirectDesc').querySelector('b').textContent = data.appName || 'của bạn';
+    location.href = deep;
+    ldVisHandler = () => { if (document.hidden) clearLandingTimers(); };
+    document.addEventListener('visibilitychange', ldVisHandler);
+    ldTimer = setTimeout(() => {
+      if (!document.hidden && target) location.replace(target);
+    }, 1800);
+  } else {
+    $('#ldRedirectTitle').textContent = 'Đang mở ' + ldStoreName(data, os) + '...';
+    $('#ldRedirectDesc').innerHTML = 'Đã nhận diện thiết bị <b>' + LD_NAMES[os] + '</b> — đang đưa bạn đến nơi tải ứng dụng.';
+    // Chuyển NGAY LẬP TỨC — không trì hoãn, đúng nghĩa "link thẳng"
+    if (target) location.replace(target);
+  }
+}
+
+/* Chế độ xem thử: mô phỏng màn hình chuyển hướng rồi hiện trang nút, KHÔNG chuyển thật */
+function showRedirectDemo(data) {
+  clearLandingTimers();
+  $('#landingCard').hidden = true;
+  $('#landingRedirect').hidden = false;
+  $('#ldManualBtn').hidden = true;
+  $('#ldCancelBtn').hidden = true;
+  $('#ldDeepTip').hidden = true;
+
+  const os = detectOS();
+  const target = landingTarget(data, os);
+  ldCurrentTarget = target;
+  $('#ldDevIcon').textContent = LD_ICONS[os];
+  $('#ldRedirectTitle').textContent = '👁 Xem thử: quét thật sẽ chuyển THẲNG';
+  const descEl = $('#ldRedirectDesc');
+  descEl.innerHTML = 'Thiết bị <b></b> khi quét sẽ được đưa ngay đến <b></b>:<br><span style="word-break:break-all;font-size:.72rem;opacity:.75"></span>';
+  const bs = descEl.querySelectorAll('b');
+  bs[0].textContent = LD_NAMES[os];
+  bs[1].textContent = ldStoreName(data, os);
+  descEl.querySelector('span').textContent = target;
+
+  ldTimer = setTimeout(() => {
+    showCardView(data, true);
+    showToast('Khi quét thật: chuyển thẳng đến cửa hàng ngay lập tức ⚡');
+  }, 2400);
+}
+
+function showAppLanding(data, preview) {
+  $('#landingRoot').hidden = false;
+  document.body.classList.add('landing-open');
+  if (data.autoRedirect && !preview) {
+    showRedirectView(data);
+  } else if (data.autoRedirect && preview) {
+    showRedirectDemo(data);
+  } else {
+    showCardView(data, preview);
+  }
+}
+
+function hideAppLanding() {
+  clearLandingTimers();
+  $('#landingRoot').hidden = true;
+  document.body.classList.remove('landing-open');
+}
+
+function handleHash() {
+  const h = location.hash;
+  if (h.startsWith('#/app/')) {
+    const data = decodeAppData(h.substring(6));
+    if (data) {
+      const preview = ldPreviewMode;
+      ldPreviewMode = false;
+      showAppLanding(data, preview);
+      return;
+    }
+  }
+  hideAppLanding();
+}
+window.addEventListener('hashchange', handleHash);
+
+$('#ldManualBtn').addEventListener('click', () => {
+  if (ldCurrentTarget) location.href = ldCurrentTarget;
+});
+$('#ldCancelBtn').addEventListener('click', () => {
+  const h = location.hash;
+  if (h.startsWith('#/app/')) {
+    const data = decodeAppData(h.substring(6));
+    if (data) showCardView(data, false);
+  }
+});
+$('#ldBackBtn').addEventListener('click', () => {
+  hideAppLanding();
+  history.replaceState(null, '', location.pathname + location.search);
+});
+$('#btnPreviewLanding').addEventListener('click', () => {
+  if (!hasAnyAppLink()) { showToast('Điền ít nhất một liên kết cửa hàng trước đã nhé'); return; }
+  if (appDirectLink()) { showToast('⚡ Mã đang trỏ THẲNG đến cửa hàng — không dùng trang landing'); return; }
+  const encoded = encodeAppData(state.app);
+  if (!encoded) return;
+  ldPreviewMode = true;
+  if (location.hash === '#/app/' + encoded) {
+    handleHash();
+  } else {
+    location.hash = '/app/' + encoded;
+  }
+});
+
+/* --- Khởi động --- */
+document.getElementById('inAppBase').value = state.app.landingBase;
+refreshVisibility();
+updateAll();
+handleHash();
+</script>
+
+</body>
+</html>

@@ -507,8 +507,8 @@ body.landing-open{overflow:hidden}
               <span class="sub-label" style="margin:0">Tự động chuyển hướng khi quét</span>
               <button type="button" class="switch on" id="swAppRedirect" role="switch" aria-label="Bật tắt tự động chuyển hướng"></button>
             </div>
-            <label class="field"><span>Địa chỉ trang landing (nơi bạn đăng file này lên mạng)</span><input id="inAppBase" type="text" placeholder="https://ten-ban.github.io/aquaqr.html" spellcheck="false"></label>
-            <div class="hint-note">
+            <label class="field" id="rowAppBase"><span>Địa chỉ trang landing (nơi bạn đăng file này lên mạng) 🔓</span><input id="inAppBase" type="text" placeholder="https://ten-ban.github.io/aquaqr.html" spellcheck="false"></label>
+            <div class="hint-note" id="appBaseNote">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
               <span id="appBaseNoteText">Mã QR đôi hoạt động bằng cách trỏ về chính file này kèm dữ liệu nén trong liên kết: người quét sẽ thấy trang landing tự nhận diện iPhone / Android / Huawei rồi chuyển đến đúng cửa hàng.</span>
             </div>
@@ -3242,6 +3242,21 @@ const PRESET_LOGOS = [
 /* ---------- QR đôi cho Ứng dụng: mã hóa / giải mã / nhận diện thiết bị ---------- */
 try { state.app.landingBase = localStorage.getItem('aquaqr_landing_base') || ''; } catch (e) { /* file:// có thể chặn */ }
 
+/* ---------- Chế độ admin: ẩn cấu hình landing với người dùng thường ----------
+   Bật/tắt: thêm ?admin=1 (hoặc ?admin=0) vào cuối link, hoặc bấm 7 lần vào logo.
+   Khi mở qua file:// (file trên máy chủ sở hữu) luôn hiện đầy đủ. */
+let ADMIN_MODE = false;
+try {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('admin') === '1') localStorage.setItem('aquaqr_admin', '1');
+  if (qs.get('admin') === '0') localStorage.removeItem('aquaqr_admin');
+  ADMIN_MODE = localStorage.getItem('aquaqr_admin') === '1';
+} catch (e) { /* bỏ qua */ }
+
+function showLandingConfig() {
+  return ADMIN_MODE || location.protocol === 'file:';
+}
+
 /* Mã hóa RÚT GỌN: chỉ lưu ID ứng dụng thay vì cả URL, bỏ trường trống —
    nội dung ngắn hơn → mã QR ít ô, thưa và dễ quét hơn hẳn. */
 function encodeAppData(a) {
@@ -3704,6 +3719,9 @@ function refreshVisibility() {
   $('#logoOpts').hidden = !logoOn;
   $('#eclNote').hidden = !logoOn;
   $('#upInfo').hidden = !logoImage;
+  const cfg = showLandingConfig();
+  $('#rowAppBase').hidden = !cfg;
+  $('#appBaseNote').hidden = !cfg;
 }
 
 /* --- Tab loại nội dung --- */
@@ -4152,6 +4170,25 @@ $('#btnPreviewLanding').addEventListener('click', () => {
     handleHash();
   } else {
     location.hash = '/app/' + encoded;
+  }
+});
+
+/* --- Mở khóa admin: bấm 7 lần liên tiếp vào logo AquaQR --- */
+let adminTapCount = 0;
+let adminTapTimer = null;
+document.querySelector('.brand').addEventListener('click', () => {
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1600);
+  if (adminTapCount >= 7) {
+    adminTapCount = 0;
+    ADMIN_MODE = !ADMIN_MODE;
+    try {
+      if (ADMIN_MODE) localStorage.setItem('aquaqr_admin', '1');
+      else localStorage.removeItem('aquaqr_admin');
+    } catch (e) { /* bỏ qua */ }
+    refreshVisibility();
+    showToast(ADMIN_MODE ? '🔓 Chế độ admin: BẬT' : '🔒 Chế độ admin: TẮT');
   }
 });
 
